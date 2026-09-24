@@ -50,8 +50,9 @@ def build_message(job: dict, score: int, details: dict) -> str:
 
     description = details.get("description", "").strip()
     if description:
-        if not details.get("full_description") and len(description) > 220:
-            description = description[:220].rstrip() + "…"
+        limit = details.get("description_limit", 220)
+        if len(description) > limit:
+            description = description[:limit].rstrip() + "…"
         lines.append("")
         lines.append(description)
 

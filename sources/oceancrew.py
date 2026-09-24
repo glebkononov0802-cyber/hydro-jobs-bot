@@ -143,35 +143,29 @@ def fetch_job_details(url: str) -> dict:
         if paren_match:
             details["Location"] = paren_match.group(1).strip()
 
-    desc_match = re.search(
-        r"Job Description:\s*(.+?)(?:\s*Job Info\b|\s*Share this vacancy\b|$)",
+    section_match = re.search(
+        r"Job description\s*(.+?)\s*Job Info\b",
         full_text,
-        re.S,
+        re.S | re.I,
     )
-    if desc_match:
-        details["description"] = desc_match.group(1).strip()
-    else:
-        # Запасной вариант, если на конкретной странице нет метки
-        # "Job Description:" — берём текст под заголовком "Job description"
-        desc_heading = soup.find(["h2", "h3"], string=re.compile(r"Job description", re.I))
-        if desc_heading:
-            parts = []
-            node = desc_heading.find_next_sibling()
-            steps = 0
-            while node and steps < 8:
-                if node.get_text() and re.search(r"Job Info", node.get_text(), re.I):
-                    break
-                text = node.get_text(" ", strip=True)
-                if text and "Role details, requirements" not in text:
-                    parts.append(text)
-                node = node.find_next_sibling()
-                steps += 1
-            details["description"] = " ".join(parts)
+    if section_match:
+        desc_block = section_match.group(1).strip()
+        # убираем служебный подзаголовок, который есть почти всегда
+        desc_block = re.sub(
+            r"^Role details, requirements and important context from the employer\.?\s*",
+            "",
+            desc_block,
+            flags=re.I,
+        )
+        # некоторые агентства дублируют метку "Job Description:" внутри — убираем и её
+        desc_block = re.sub(r"^Job Description:\s*", "", desc_block, flags=re.I)
+        details["description"] = desc_block.strip()
 
-    # У OceanCrew мало структурированных полей, поэтому описание
-    # присылаем целиком, без обрезки — так просили не терять детали
-    # (софт, требования и т.п.), которые не попали в другие поля.
-    details["full_description"] = True
+    # У OceanCrew бывают как короткие описания (2-3 строки), так и длинные
+    # портянки с Key Responsibilities/Requirements/Employment Details.
+    # Ставим лимит побольше, чем у других источников (550 вместо 220) —
+    # этого хватает на суть (локация, софт, позиция), а не на всё подряд.
+    details["description_limit"] = 550
 
     return details
 

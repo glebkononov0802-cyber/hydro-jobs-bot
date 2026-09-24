@@ -43,6 +43,9 @@ def build_message(job: dict, score: int, details: dict) -> str:
     if details.get("Software"):
         lines.append(f"🛠 {details['Software']}")
 
+    if details.get("Experience"):
+        lines.append(f"🎓 {details['Experience']}")
+
     if details.get("Positions"):
         lines.append(f"👥 {details['Positions']}")
 

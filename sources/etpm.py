@@ -82,32 +82,26 @@ def fetch_job_details(url: str) -> dict:
     soup = BeautifulSoup(resp.text, "html.parser")
 
     details: dict = {}
+    full_text = soup.get_text("\n", strip=True)
 
-    h1 = soup.find("h1")
-    if not h1:
-        return details
+    known_labels = [
+        "Job Role", "Location", "Start Date", "Duration",
+        "Vaccination Status", "Experience", "Other Info",
+    ]
+    label_pattern = r"(" + "|".join(re.escape(l) for l in known_labels) + r")\s*:\s*"
+    matches = list(re.finditer(label_pattern, full_text))
 
-    node = h1.find_next_sibling()
-    steps = 0
-    while node and steps < 15:
-        # Читаем с переносом строки, потому что ETPM часто кладёт все
-        # поля (Job Role/Location/Start Date/...) в один <p> через <br>,
-        # а не отдельными элементами
-        block_text = node.get_text("\n", strip=True)
-        if block_text:
-            if re.search(r"^Apply For This Role$", block_text, re.I | re.M):
-                break
-            for line in block_text.split("\n"):
-                line = line.strip()
-                if not line:
-                    continue
-                label_match = re.match(r"^([A-Za-z][A-Za-z /]{2,30}):\s*(.+)$", line)
-                if label_match:
-                    label = label_match.group(1).strip()
-                    value = label_match.group(2).strip()
-                    details[label] = value
-        node = node.find_next_sibling()
-        steps += 1
+    stop_match_global = re.search(r"Apply For This Role", full_text, re.I)
+    stop_pos = stop_match_global.start() if stop_match_global else len(full_text)
+
+    for i, m in enumerate(matches):
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else stop_pos
+        if end < start:
+            end = stop_pos
+        value = full_text[start:end].strip().strip("\n").strip()
+        if value:
+            details[m.group(1)] = value
 
     # "Other Info" обычно содержит визовые/сертификационные требования —
     # используем как основное описание вакансии

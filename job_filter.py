@@ -20,7 +20,14 @@ POSITIVE_KEYWORDS: dict[str, int] = {
     "marine surveyor": 8,
     "survey engineer": 6,
     "survey technician": 6,
-    "data processor": 6,
+    "site surveyor": 8,
+    "project surveyor": 8,
+    "data processor": 10,
+    "senior data processor": 12,
+    "multibeam data processor": 14,
+    "remote data processor": 10,
+    "remote online surveyor": 12,
+    "remote": 2,
 
     "qinsy": 10,
     "eiva": 10,
@@ -64,9 +71,14 @@ NEGATIVE_KEYWORDS: dict[str, int] = {
     "full-time employee": -6,
 }
 
+# Вакансия проходит дальше, если в тексте встретилось хотя бы одно
+# из этих слов ИЛИ хотя бы одно из POSITIVE_KEYWORDS длиной от 2 слов
+# (например "data processor") — это защищает от полного мусора вроде
+# "Quantity Surveyor" без дублирования всего списка ключевых ролей здесь.
 REQUIRE_ANY_OF = [
     "survey", "surveyor", "hydro", "offshore", "marine",
     "qinsy", "eiva", "mbes", "multibeam", "geophysic", "geotechnical",
+    "data processor",
 ]
 
 DEFAULT_THRESHOLD = 8

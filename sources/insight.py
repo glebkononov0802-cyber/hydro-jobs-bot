@@ -101,32 +101,43 @@ def fetch_job_details(url: str) -> dict:
     if not h1:
         return details
 
-    # Positions — список <li> под заголовком "Positions"
-    positions_heading = soup.find(["h2", "h3", "h4"], string=re.compile(r"^Positions$", re.I))
-    if positions_heading:
-        ul = positions_heading.find_next("ul")
+    full_text = soup.get_text(" ", strip=True)
+
+    # Positions — список <li> под заголовком "Positions" (не обязательно тег-заголовок)
+    positions_label = soup.find(string=re.compile(r"^Positions$", re.I))
+    if positions_label:
+        ul = positions_label.find_next("ul")
         if ul:
             items = [li.get_text(strip=True) for li in ul.find_all("li")]
             if items:
                 details["Positions"] = ", ".join(items)
 
-    # Простые поля-подписи: Location / Start / Duration / Posted —
-    # заголовок, а значение сразу следующим элементом
-    field_map = {"Location": "Location", "Start": "Start Date", "Duration": "Duration", "Posted": "Posted"}
-    for label, key in field_map.items():
-        label_node = soup.find(["h2", "h3", "h4"], string=re.compile(rf"^{label}$", re.I))
-        if label_node:
-            value_node = label_node.find_next_sibling()
-            value = value_node.get_text(" ", strip=True) if value_node else ""
-            if value:
-                details[key] = value
+    # Location / Start / Duration / Posted идут подряд одним блоком —
+    # это НЕ заголовки, а обычные подписанные значения, поэтому ищем
+    # прямо по тексту всей страницы, а не по тегам
+    fields_match = re.search(
+        r"Location\s*(.+?)\s*Start\s*(.+?)\s*Duration\s*(.+?)\s*Posted\s*(.+?)(?:\s*Apply for this role\b|$)",
+        full_text,
+        re.S,
+    )
+    if fields_match:
+        details["Location"] = fields_match.group(1).strip()
+        details["Start Date"] = fields_match.group(2).strip()
+        details["Duration"] = fields_match.group(3).strip()
+        details["Posted"] = fields_match.group(4).strip()
 
-    # Описание — текст между заголовком (h1) и заголовком "Positions"
+    # Описание — текст между h1 и заголовком "Positions", но пропускаем
+    # первую короткую строку-подзаголовок сразу после h1 (например
+    # "Topographic Survey" или "Multiple projects") — это просто
+    # категория/скоуп, не само описание
     description_parts = []
     node = h1.find_next_sibling()
+    if node:
+        node = node.find_next_sibling()  # пропускаем короткую строку-категорию
     steps = 0
     while node and steps < 6:
-        if node.name in ("h2", "h3", "h4") and re.search(r"^Positions$", node.get_text(strip=True), re.I):
+        node_text = node.get_text(strip=True)
+        if node_text and re.match(r"^Positions$", node_text, re.I):
             break
         text = node.get_text(" ", strip=True)
         if text:

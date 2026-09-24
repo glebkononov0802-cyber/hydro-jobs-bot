@@ -28,6 +28,10 @@ HEADERS = {
     "Referer": "https://www.preciseconsultants.com/jobs/",
     "Origin": "https://www.preciseconsultants.com",
     "Accept": "application/json",
+    "Platform-Code": "applyflow",
+    "Site-Code": "precise-consultants",
+    "Job-Buckets": "PRECISE-CONSULTANTS",
+    "Seeker-Buckets": "precise-consultants",
 }
 
 

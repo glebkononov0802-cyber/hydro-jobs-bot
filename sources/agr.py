@@ -36,6 +36,7 @@ def fetch_jobs(max_pages: int = 3) -> list[dict]:
         url = BASE_URL if page_num == 1 else f"{BASE_URL}page/{page_num}/"
 
         resp = requests.get(url, headers=HEADERS, timeout=20)
+        resp.encoding = "utf-8"
         print(f"[DEBUG] AGR страница {page_num}: {url}")
         print(f"[DEBUG] HTTP статус: {resp.status_code}, длина ответа: {len(resp.text)}")
         resp.raise_for_status()
@@ -99,6 +100,7 @@ def fetch_job_details(url: str) -> dict:
     Sector, Contact Details (email из "How to Apply"), description.
     """
     resp = requests.get(url, headers=HEADERS, timeout=20)
+    resp.encoding = "utf-8"
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 

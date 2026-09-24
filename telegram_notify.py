@@ -40,6 +40,8 @@ def build_message(job: dict, score: int, details: dict) -> str:
 
     if details.get("Contact Details"):
         lines.append(f"✉️ {details['Contact Details']}")
+    if details.get("Contact Phone"):
+        lines.append(f"📞 {details['Contact Phone']}")
 
     description = details.get("description", "").strip()
     if description:

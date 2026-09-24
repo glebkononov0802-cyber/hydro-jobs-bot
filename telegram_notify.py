@@ -22,6 +22,8 @@ def build_message(job: dict, score: int, details: dict) -> str:
         top_line.append(f"📍 {details['Location']}")
     if details.get("Work Type"):
         top_line.append(f"📄 {details['Work Type']}")
+    if details.get("Salary"):
+        top_line.append(f"💰 {details['Salary']}")
     if top_line:
         lines.append(" · ".join(top_line))
 

@@ -12,21 +12,22 @@ main.py — точка входа Hydro Jobs Bot.
 from job_filter import filter_jobs
 from seen_store import load_seen, save_seen
 from telegram_notify import send_job
-from sources import utm
+from sources import utm, agr
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
 # подробности (Location, Duration и т.п.). Если источника нет в этом
 # словаре — сообщение уйдёт без доп. полей, просто заголовок+ссылка.
 DETAIL_FETCHERS = {
     "utm": utm.fetch_job_details,
+    "agr": agr.fetch_job_details,
 }
 
 
 def main():
     all_jobs = []
     all_jobs.extend(utm.fetch_jobs())
+    all_jobs.extend(agr.fetch_jobs())
     # сюда позже добавятся другие источники:
-    # all_jobs.extend(agr.fetch_jobs())
     # all_jobs.extend(oceancrew.fetch_jobs())
 
     scored = filter_jobs(all_jobs)  # уже отсортировано по score, только релевантные

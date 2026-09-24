@@ -108,17 +108,21 @@ def fetch_job_details(url: str) -> dict:
     tables = soup.find_all("table")
 
     if tables:
-        first_table = tables[0]
-        for row in first_table.find_all("tr"):
-            cells = row.find_all(["th", "td"])
-            if len(cells) >= 2:
-                key = cells[0].get_text(strip=True).rstrip(":")
-                value = cells[1].get_text(strip=True)
-                if key and value:
-                    details[key] = value
+        # Собираем пары ключ:значение из ВСЕХ таблиц на странице —
+        # первая обычно Location/Work Type/Start Date/Duration/Software,
+        # вторая — Reference Number/Contact Details/Profession.
+        for table in tables:
+            for row in table.find_all("tr"):
+                cells = row.find_all(["th", "td"])
+                if len(cells) >= 2:
+                    key = cells[0].get_text(strip=True).rstrip(":")
+                    value = cells[1].get_text(strip=True)
+                    if key and value:
+                        details[key] = value
 
         # Описание — текст между первой таблицей (Location/...) и
         # второй таблицей (Reference Number/Contact/...)
+        first_table = tables[0]
         description_parts = []
         node = first_table.find_next_sibling()
         while node and node.name != "table":

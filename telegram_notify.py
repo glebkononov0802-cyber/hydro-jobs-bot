@@ -68,6 +68,27 @@ def build_message(job: dict, score: int, details: dict) -> str:
     return "\n".join(lines)
 
 
+def send_alert(text: str) -> bool:
+    """
+    Отправляет служебное сообщение (не про конкретную вакансию) —
+    например, предупреждение, что источник перестал отвечать.
+    """
+    resp = requests.post(
+        API_URL,
+        data={
+            "chat_id": CHAT_ID,
+            "text": text,
+            "disable_web_page_preview": True,
+        },
+        timeout=15,
+    )
+    result = resp.json()
+    if not result.get("ok"):
+        print(f"[TELEGRAM ERROR] {result}")
+        return False
+    return True
+
+
 def send_job(job: dict, score: int, details: dict | None = None) -> bool:
     """
     Возвращает True, если Telegram подтвердил доставку.

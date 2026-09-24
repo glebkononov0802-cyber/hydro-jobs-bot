@@ -47,6 +47,9 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
         page_title = soup.title.get_text(strip=True) if soup.title else "(нет title)"
         print(f"[DEBUG] <title> страницы: {page_title}")
 
+        if re.search(r"one moment|just a moment|attention required|checking your browser", page_title, re.I):
+            raise RuntimeError(f"Похоже на антибот-заглушку сайта: title='{page_title}'")
+
         headings = soup.find_all(["h2", "h3", "h4"])
         print(f"[DEBUG] Найдено заголовков h2/h3/h4 на странице: {len(headings)}")
 

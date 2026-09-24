@@ -12,7 +12,7 @@ main.py — точка входа Hydro Jobs Bot.
 from job_filter import filter_jobs
 from seen_store import load_seen, save_seen
 from telegram_notify import send_job
-from sources import utm, agr, oceancrew, insight, etpm
+from sources import utm, agr, oceancrew, insight, etpm, precise
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
 # подробности (Location, Duration и т.п.). Если источника нет в этом
@@ -23,6 +23,7 @@ DETAIL_FETCHERS = {
     "oceancrew": oceancrew.fetch_job_details,
     "insight": insight.fetch_job_details,
     "etpm": etpm.fetch_job_details,
+    "precise": precise.fetch_job_details,
 }
 
 
@@ -33,7 +34,7 @@ def main():
     all_jobs.extend(oceancrew.fetch_jobs())
     all_jobs.extend(insight.fetch_jobs())
     all_jobs.extend(etpm.fetch_jobs())
-    # сюда позже добавится Precise Consultants
+    all_jobs.extend(precise.fetch_jobs())
 
     scored = filter_jobs(all_jobs)  # уже отсортировано по score, только релевантные
 

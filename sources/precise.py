@@ -44,7 +44,7 @@ def _find_job_list(data) -> list | None:
     if not isinstance(data, dict):
         return None
 
-    for key in ("jobs", "results", "items", "records", "data"):
+    for key in ("jobs", "results", "search_results", "items", "records", "hits", "data"):
         value = data.get(key)
         if isinstance(value, list):
             return value
@@ -82,6 +82,11 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
 
         if isinstance(data, dict):
             print(f"[DEBUG] Precise: верхнеуровневые ключи JSON: {list(data.keys())}")
+            sr = data.get("search_results")
+            if isinstance(sr, dict):
+                print(f"[DEBUG] Precise: ключи внутри search_results: {list(sr.keys())}")
+            elif isinstance(sr, list):
+                print(f"[DEBUG] Precise: search_results — это список из {len(sr)} элементов")
 
         job_list = _find_job_list(data)
         if not job_list:

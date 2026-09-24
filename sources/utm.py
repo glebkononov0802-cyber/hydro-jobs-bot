@@ -1,0 +1,90 @@
+"""
+sources/utm.py
+
+Парсер вакансий с сайта UTM Consultants (utmconsultants.com).
+Сайт отдаёт обычный серверный HTML — никакого JS/AJAX-эндпоинта
+искать не нужно, requests + BeautifulSoup достаточно.
+
+Берём страницу с фильтром по категории Hydrographic Survey, но
+собираем ВСЕ заголовки-вакансии на странице (не только с category=hydro),
+потому что финальную релевантность всё равно решает job_filter.py —
+так мы не пропустим смежные роли (ROV, Marine и т.д.), если UTM
+поместит их в другую категорию.
+"""
+
+from __future__ import annotations
+import re
+import requests
+from bs4 import BeautifulSoup
+
+BASE_URL = "https://www.utmconsultants.com/jobs/"
+LISTING_URL = f"{BASE_URL}?professionid=6858&search=1&matador-categories=hydrographic-survey"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; HydroJobsBot/1.0; personal use)"
+}
+
+JOB_LINK_RE = re.compile(r"^https://www\.utmconsultants\.com/jobs/[a-z0-9\-]+/?$")
+
+
+def fetch_jobs(max_pages: int = 2) -> list[dict]:
+    """
+    Возвращает список вакансий вида:
+    {"title": str, "url": str, "description": str, "source": "utm"}
+    """
+    jobs: list[dict] = []
+    url = LISTING_URL
+
+    for _ in range(max_pages):
+        resp = requests.get(url, headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        headings = soup.find_all(["h2", "h3", "h4"])
+
+        for heading in headings:
+            link = heading.find("a", href=True)
+            if not link:
+                continue
+
+            href = link["href"].split("?")[0].rstrip("/") + "/"
+            if not JOB_LINK_RE.match(href):
+                continue
+            if href.rstrip("/") == BASE_URL.rstrip("/"):
+                continue
+
+            title = link.get_text(strip=True)
+            if not title:
+                continue
+
+            # Собираем текст между этим заголовком и следующим —
+            # там обычно лежат "Type:", "Job #...", дата и описание.
+            description_parts = []
+            for sibling in heading.find_next_siblings():
+                if sibling.name in ("h2", "h3", "h4"):
+                    break
+                text = sibling.get_text(" ", strip=True)
+                if text:
+                    description_parts.append(text)
+
+            jobs.append({
+                "title": title,
+                "url": href,
+                "description": " ".join(description_parts),
+                "source": "utm",
+            })
+
+        next_link = soup.find("a", string=re.compile(r"Next", re.I))
+        if next_link and next_link.get("href"):
+            url = next_link["href"]
+        else:
+            break
+
+    return jobs
+
+
+if __name__ == "__main__":
+    found = fetch_jobs()
+    print(f"Найдено вакансий на странице: {len(found)}\n")
+    for j in found:
+        print("-", j["title"], "->", j["url"])

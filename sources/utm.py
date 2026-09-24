@@ -35,12 +35,20 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
     jobs: list[dict] = []
     url = LISTING_URL
 
-    for _ in range(max_pages):
+    for page_num in range(max_pages):
         resp = requests.get(url, headers=HEADERS, timeout=20)
+
+        print(f"[DEBUG] Страница {page_num + 1}: {url}")
+        print(f"[DEBUG] HTTP статус: {resp.status_code}, длина ответа: {len(resp.text)} символов")
+
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
+        page_title = soup.title.get_text(strip=True) if soup.title else "(нет title)"
+        print(f"[DEBUG] <title> страницы: {page_title}")
+
         headings = soup.find_all(["h2", "h3", "h4"])
+        print(f"[DEBUG] Найдено заголовков h2/h3/h4 на странице: {len(headings)}")
 
         for heading in headings:
             link = heading.find("a", href=True)
@@ -81,6 +89,46 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
             break
 
     return jobs
+
+
+def fetch_job_details(url: str) -> dict:
+    """
+    Открывает страницу конкретной вакансии и вытаскивает структурированные
+    поля (Location, Work Type, Start Date, Duration, Software и т.п.)
+    из первой таблицы на странице, плюс текст описания между
+    первой и второй таблицей.
+
+    Вызывается только для новых вакансий — не на каждый прогон бота.
+    """
+    resp = requests.get(url, headers=HEADERS, timeout=20)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    details: dict = {}
+    tables = soup.find_all("table")
+
+    if tables:
+        first_table = tables[0]
+        for row in first_table.find_all("tr"):
+            cells = row.find_all(["th", "td"])
+            if len(cells) >= 2:
+                key = cells[0].get_text(strip=True).rstrip(":")
+                value = cells[1].get_text(strip=True)
+                if key and value:
+                    details[key] = value
+
+        # Описание — текст между первой таблицей (Location/...) и
+        # второй таблицей (Reference Number/Contact/...)
+        description_parts = []
+        node = first_table.find_next_sibling()
+        while node and node.name != "table":
+            text = node.get_text(" ", strip=True)
+            if text:
+                description_parts.append(text)
+            node = node.find_next_sibling()
+        details["description"] = " ".join(description_parts)
+
+    return details
 
 
 if __name__ == "__main__":

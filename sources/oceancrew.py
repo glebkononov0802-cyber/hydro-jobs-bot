@@ -143,24 +143,35 @@ def fetch_job_details(url: str) -> dict:
         if paren_match:
             details["Location"] = paren_match.group(1).strip()
 
-    desc_heading = soup.find(["h2", "h3"], string=re.compile(r"Job description", re.I))
-    if desc_heading:
-        parts = []
-        node = desc_heading.find_next_sibling()
-        steps = 0
-        while node and steps < 5:
-            if node.get_text() and re.search(r"Job Info", node.get_text(), re.I):
-                break
-            text = node.get_text(" ", strip=True)
-            if text:
-                parts.append(text)
-            node = node.find_next_sibling()
-            steps += 1
-        details["description"] = " ".join(parts)
-        # У OceanCrew мало структурированных полей, поэтому описание
-        # присылаем целиком, без обрезки — так просили не терять детали
-        # (софт, требования и т.п.), которые не попали в другие поля.
-        details["full_description"] = True
+    desc_match = re.search(
+        r"Job Description:\s*(.+?)(?:\s*Job Info\b|\s*Share this vacancy\b|$)",
+        full_text,
+        re.S,
+    )
+    if desc_match:
+        details["description"] = desc_match.group(1).strip()
+    else:
+        # Запасной вариант, если на конкретной странице нет метки
+        # "Job Description:" — берём текст под заголовком "Job description"
+        desc_heading = soup.find(["h2", "h3"], string=re.compile(r"Job description", re.I))
+        if desc_heading:
+            parts = []
+            node = desc_heading.find_next_sibling()
+            steps = 0
+            while node and steps < 8:
+                if node.get_text() and re.search(r"Job Info", node.get_text(), re.I):
+                    break
+                text = node.get_text(" ", strip=True)
+                if text and "Role details, requirements" not in text:
+                    parts.append(text)
+                node = node.find_next_sibling()
+                steps += 1
+            details["description"] = " ".join(parts)
+
+    # У OceanCrew мало структурированных полей, поэтому описание
+    # присылаем целиком, без обрезки — так просили не терять детали
+    # (софт, требования и т.п.), которые не попали в другие поля.
+    details["full_description"] = True
 
     return details
 

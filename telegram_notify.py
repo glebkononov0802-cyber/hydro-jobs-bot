@@ -14,18 +14,48 @@ CHAT_ID = os.environ["CHAT_ID"]
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 
-def send_job(job: dict, score: int) -> bool:
+def build_message(job: dict, score: int, details: dict) -> str:
+    lines = [f"🟢 HYDRO JOB (+{score})", "", job["title"], f"🏢 {job['source'].upper()}"]
+
+    top_line = []
+    if details.get("Location"):
+        top_line.append(f"📍 {details['Location']}")
+    if details.get("Work Type"):
+        top_line.append(f"📄 {details['Work Type']}")
+    if top_line:
+        lines.append(" · ".join(top_line))
+
+    date_line = []
+    if details.get("Start Date"):
+        date_line.append(f"📅 {details['Start Date']}")
+    if details.get("Duration"):
+        date_line.append(details["Duration"])
+    if date_line:
+        lines.append(" · ".join(date_line))
+
+    if details.get("Software"):
+        lines.append(f"🛠 {details['Software']}")
+
+    description = details.get("description", "").strip()
+    if description:
+        if len(description) > 220:
+            description = description[:220].rstrip() + "…"
+        lines.append("")
+        lines.append(description)
+
+    lines.append("")
+    lines.append(f"🔗 {job['url']}")
+
+    return "\n".join(lines)
+
+
+def send_job(job: dict, score: int, details: dict | None = None) -> bool:
     """
     Возвращает True, если Telegram подтвердил доставку.
-    Печатает подробности в лог, если что-то пошло не так —
-    чтобы GitHub Actions не молчал при ошибке.
+    details — необязательный словарь с Location/Work Type/Start Date/
+    Duration/Software/description (см. sources/utm.py fetch_job_details).
     """
-    text = (
-        f"🟢 HYDRO JOB (+{score})\n\n"
-        f"{job['title']}\n"
-        f"🏢 Источник: {job['source'].upper()}\n\n"
-        f"🔗 {job['url']}"
-    )
+    text = build_message(job, score, details or {})
     resp = requests.post(
         API_URL,
         data={

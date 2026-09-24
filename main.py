@@ -14,12 +14,18 @@ from seen_store import load_seen, save_seen
 from telegram_notify import send_job
 from sources import utm
 
+# Для каждого источника — функция, которая по URL вакансии достаёт
+# подробности (Location, Duration и т.п.). Если источника нет в этом
+# словаре — сообщение уйдёт без доп. полей, просто заголовок+ссылка.
+DETAIL_FETCHERS = {
+    "utm": utm.fetch_job_details,
+}
+
 
 def main():
     all_jobs = []
     all_jobs.extend(utm.fetch_jobs())
-    # Сюда позже добавятся другие источники, например:
-    # from sources import agr, oceancrew
+    # сюда позже добавятся другие источники:
     # all_jobs.extend(agr.fetch_jobs())
     # all_jobs.extend(oceancrew.fetch_jobs())
 
@@ -30,7 +36,19 @@ def main():
 
     sent_count = 0
     for job in new_jobs:
-        ok = send_job({"title": job.title, "url": job.url, "source": job.source}, job.score)
+        details = {}
+        fetch_details = DETAIL_FETCHERS.get(job.source)
+        if fetch_details:
+            try:
+                details = fetch_details(job.url)
+            except Exception as e:
+                print(f"[WARN] Не удалось получить детали {job.url}: {e}")
+
+        ok = send_job(
+            {"title": job.title, "url": job.url, "source": job.source},
+            job.score,
+            details,
+        )
         if ok:
             seen.add(job.url)
             sent_count += 1

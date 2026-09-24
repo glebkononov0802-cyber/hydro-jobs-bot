@@ -17,6 +17,9 @@ API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 def build_message(job: dict, score: int, details: dict) -> str:
     lines = [f"🟢 HYDRO JOB (+{score})", "", job["title"], f"🏢 {job['source'].upper()}"]
 
+    if details.get("Company"):
+        lines.append(f"🏗 {details['Company']}")
+
     top_line = []
     if details.get("Location"):
         top_line.append(f"📍 {details['Location']}")
@@ -30,6 +33,8 @@ def build_message(job: dict, score: int, details: dict) -> str:
     date_line = []
     if details.get("Start Date"):
         date_line.append(f"📅 {details['Start Date']}")
+    if details.get("Posted"):
+        date_line.append(f"🗓 Posted: {details['Posted']}")
     if details.get("Duration"):
         date_line.append(details["Duration"])
     if date_line:
@@ -45,7 +50,7 @@ def build_message(job: dict, score: int, details: dict) -> str:
 
     description = details.get("description", "").strip()
     if description:
-        if len(description) > 220:
+        if not details.get("full_description") and len(description) > 220:
             description = description[:220].rstrip() + "…"
         lines.append("")
         lines.append(description)

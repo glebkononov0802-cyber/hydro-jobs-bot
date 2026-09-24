@@ -28,16 +28,21 @@ def main():
     seen = load_seen()
     new_jobs = [j for j in scored if j.url not in seen]
 
+    sent_count = 0
     for job in new_jobs:
-        send_job({"title": job.title, "url": job.url, "source": job.source}, job.score)
-        seen.add(job.url)
+        ok = send_job({"title": job.title, "url": job.url, "source": job.source}, job.score)
+        if ok:
+            seen.add(job.url)
+            sent_count += 1
+        # если Telegram вернул ошибку — НЕ добавляем в seen,
+        # чтобы бот попробовал отправить эту же вакансию в следующий раз
 
     save_seen(seen)
 
     print(
         f"Всего найдено: {len(all_jobs)} | "
         f"релевантных: {len(scored)} | "
-        f"новых отправлено: {len(new_jobs)}"
+        f"реально отправлено: {sent_count} из {len(new_jobs)}"
     )
 
 

@@ -90,15 +90,22 @@ def fetch_job_details(url: str) -> dict:
     node = h1.find_next_sibling()
     steps = 0
     while node and steps < 15:
-        text = node.get_text(" ", strip=True)
-        if text:
-            if re.match(r"^Apply For This Role$", text, re.I):
+        # Читаем с переносом строки, потому что ETPM часто кладёт все
+        # поля (Job Role/Location/Start Date/...) в один <p> через <br>,
+        # а не отдельными элементами
+        block_text = node.get_text("\n", strip=True)
+        if block_text:
+            if re.search(r"^Apply For This Role$", block_text, re.I | re.M):
                 break
-            label_match = re.match(r"^([A-Za-z][A-Za-z /]{2,30}):\s*(.+)$", text)
-            if label_match:
-                label = label_match.group(1).strip()
-                value = label_match.group(2).strip()
-                details[label] = value
+            for line in block_text.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                label_match = re.match(r"^([A-Za-z][A-Za-z /]{2,30}):\s*(.+)$", line)
+                if label_match:
+                    label = label_match.group(1).strip()
+                    value = label_match.group(2).strip()
+                    details[label] = value
         node = node.find_next_sibling()
         steps += 1
 

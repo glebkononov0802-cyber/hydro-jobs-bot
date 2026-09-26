@@ -44,14 +44,21 @@ def _strip_html(text: str) -> str:
     return BeautifulSoup(text, "html.parser").get_text(" ", strip=True)
 
 
+def _absolute_url(url: str) -> str:
+    if not url:
+        return url
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    return BASE_URL + "/" + url.lstrip("/")
+
+
 def _build_job_entry(item: dict) -> dict | None:
     title = item.get("job_title") or ""
     url = item.get("URL") or item.get("apply_url") or ""
     if not title or not url:
         return None
 
-    if url.startswith("/"):
-        url = BASE_URL + url
+    url = _absolute_url(url)
 
     location = item.get("location_label") or ""
     body = _strip_html(item.get("job_description") or item.get("short_description") or item.get("job_body") or "")
@@ -127,10 +134,60 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
 
 def fetch_job_details(url: str) -> dict:
     """
-    Заново вызывает search-job API и находит нужную вакансию по URL —
-    все детали уже приходят в самом списке, отдельная страница вакансии
-    не нужна.
+    Открывает страницу конкретной вакансии (не API) и вытаскивает
+    Role/Project Type/Start Date/Duration/Software/Requirements/Location
+    плюс контакт консультанта (имя, телефон, email).
+
+    Структура страницы не проверена вживую (сайт недоступен для прямого
+    фетча из среды разработки) — пробуем и табличный, и текстовый разбор,
+    с запасным вариантом через API, если разметка страницы не совпадёт
+    с ожидаемой.
     """
+    details: dict = {}
+
+    try:
+        resp = requests.get(url, headers={"User-Agent": HEADERS["User-Agent"]}, timeout=20)
+        resp.encoding = "utf-8"
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            full_text = soup.get_text(" ", strip=True)
+
+            known_labels = ["Role", "Project Type", "Start Date", "Duration", "Software", "Requirements", "Location", "Consultant"]
+            label_pattern = r"(" + "|".join(re.escape(l) for l in known_labels) + r")\s*:?\s*"
+            matches = list(re.finditer(label_pattern, full_text))
+            for i, m in enumerate(matches):
+                start = m.end()
+                end = matches[i + 1].start() if i + 1 < len(matches) else start + 120
+                value = full_text[start:end].strip()
+                if value:
+                    details[m.group(1)] = value
+
+            # Консультант: имя обычно сразу после слова "Consultant",
+            # телефон и email — из ссылок tel:/mailto:
+            consultant_match = re.search(r"Consultant\s*([A-Z][a-zA-Z .'-]+)", full_text)
+            phone_link = soup.find("a", href=re.compile(r"^tel:"))
+            email_link = soup.find("a", href=re.compile(r"^mailto:"))
+
+            contact_parts = []
+            if consultant_match:
+                contact_parts.append(consultant_match.group(1).strip())
+            if phone_link:
+                contact_parts.append(phone_link.get_text(strip=True))
+            if email_link:
+                contact_parts.append(email_link.get_text(strip=True))
+            if contact_parts:
+                details["Contact Details"] = " · ".join(contact_parts)
+    except requests.RequestException as e:
+        print(f"[WARN] Precise: не удалось открыть страницу вакансии {url}: {e}")
+
+    if details.get("Requirements"):
+        details["description"] = details.pop("Requirements")
+
+    if details:
+        return details
+
+    # Запасной вариант — если разметка страницы не совпала с ожидаемой,
+    # берём хотя бы то, что уже есть в API (описание/локация/email)
     for page in range(1, 3):
         job_list = _fetch_page(page)
         if not job_list:
@@ -140,14 +197,9 @@ def fetch_job_details(url: str) -> dict:
             if not isinstance(item, dict):
                 continue
 
-            item_url = item.get("URL") or item.get("apply_url") or ""
-            if item_url.startswith("/"):
-                item_url = BASE_URL + item_url
-
+            item_url = _absolute_url(item.get("URL") or item.get("apply_url") or "")
             if item_url != url:
                 continue
-
-            details: dict = {}
 
             if item.get("location_label"):
                 details["Location"] = item["location_label"]
@@ -166,7 +218,7 @@ def fetch_job_details(url: str) -> dict:
 
             return details
 
-    return {}
+    return details
 
 
 if __name__ == "__main__":

@@ -36,6 +36,11 @@ def fetch_jobs(max_pages: int = 1) -> list[dict]:
         resp.encoding = "utf-8"
         print(f"[DEBUG] ETPM страница {page_num}: {url}")
         print(f"[DEBUG] HTTP статус: {resp.status_code}, длина ответа: {len(resp.text)}")
+
+        if resp.status_code == 404:
+            print(f"[DEBUG] ETPM: страница {page_num} не существует (404) — конец пагинации")
+            break
+
         resp.raise_for_status()
 
         soup = BeautifulSoup(resp.text, "html.parser")

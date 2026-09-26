@@ -42,6 +42,11 @@ def fetch_jobs(max_pages: int = 3) -> list[dict]:
         resp.encoding = "utf-8"
         print(f"[DEBUG] Elevate Offshore страница {page_num}: {url}")
         print(f"[DEBUG] HTTP статус: {resp.status_code}, длина ответа: {len(resp.text)}")
+
+        if resp.status_code == 404:
+            print(f"[DEBUG] Elevate Offshore: страница {page_num} не существует (404) — конец пагинации")
+            break
+
         resp.raise_for_status()
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -119,7 +124,19 @@ def fetch_job_details(url: str) -> dict:
         re.S,
     )
     if desc_match:
-        details["description"] = desc_match.group(1).strip()
+        description = desc_match.group(1).strip()
+
+        # Часто сайт повторяет заголовок вакансии первой строкой описания —
+        # убираем этот дубль, раз название уже есть в самом сообщении
+        h1 = soup.find("h1")
+        title_text = h1.get_text(strip=True) if h1 else ""
+        if title_text and description.lower().startswith(title_text.lower()):
+            description = description[len(title_text):].strip(" –—-:")
+
+        details["description"] = description
+        # Тут часто идёт полезный блок Requirements сразу за описанием —
+        # не обрезаем как у других источников, чтобы не терять его
+        details["description_limit"] = 900
 
     return details
 

@@ -28,7 +28,7 @@
     "alerted": false
   },
   "atlas": {
-    "consecutive_failures": 1,
+    "consecutive_failures": 0,
     "alerted": false
   }
 }

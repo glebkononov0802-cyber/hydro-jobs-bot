@@ -1,1 +1,34 @@
-{}
+{
+  "utm": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "agr": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "oceancrew": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "insight": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "etpm": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "precise": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "elevate": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "atlas": {
+    "consecutive_failures": 1,
+    "alerted": false
+  }
+}

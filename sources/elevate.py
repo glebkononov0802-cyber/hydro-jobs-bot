@@ -138,6 +138,26 @@ def fetch_job_details(url: str) -> dict:
         # не обрезаем как у других источников, чтобы не терять его
         details["description_limit"] = 900
 
+        # SOW (scope of work) — отдельной строкой перед описанием
+        sow_match = re.search(
+            r"SOW:\s*(.+?)(?:\s+Requi|\s+Software|\s+Location:|\s+Duration:|\s+Accommodation|$)",
+            description,
+            re.I,
+        )
+        if sow_match:
+            details["Scope"] = sow_match.group(1).strip().rstrip(".")
+
+        # Если внутри самого описания есть своя строка "Location:" — она
+        # точнее общего поля с сайта (то часто просто страна/офис),
+        # поэтому перебивает уже найденную выше Location
+        inline_location_match = re.search(
+            r"Location:\s*(.+?)(?:\s+(?:Mob|Mobilisation|SOW|Duration|Software|Requi|Accommodation)\b|$)",
+            description,
+            re.I,
+        )
+        if inline_location_match:
+            details["Location"] = inline_location_match.group(1).strip().rstrip(".")
+
     return details
 
 

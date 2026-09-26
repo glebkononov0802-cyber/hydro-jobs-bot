@@ -24,6 +24,7 @@ POSITIVE_KEYWORDS: dict[str, int] = {
     "project surveyor": 8,
     "survey crew": 8,
     "topographic survey": 6,
+    "survey equipment": 4,
     "surveyor": 8,
     "data processor": 10,
     "senior data processor": 12,

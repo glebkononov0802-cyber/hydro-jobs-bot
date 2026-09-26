@@ -96,9 +96,9 @@ def fetch_jobs(max_pages: int = 3) -> list[dict]:
 
 def fetch_job_details(url: str) -> dict:
     """
-    Открывает страницу конкретной вакансии и пытается вытащить
-    Location/Contract Type/Start Date, если они есть в узнаваемом виде,
-    плюс более полное описание из основного текстового блока.
+    Открывает страницу конкретной вакансии и вытаскивает Type of work,
+    Country, Start date как отдельные поля, плюс текст из блока
+    "Job description" (не форму отклика/сайдбар, как было раньше).
     """
     resp = requests.get(url, headers=HEADERS, timeout=20)
     resp.encoding = "utf-8"
@@ -106,20 +106,35 @@ def fetch_job_details(url: str) -> dict:
     soup = BeautifulSoup(resp.text, "html.parser")
 
     details: dict = {}
+    full_text = soup.get_text(" ", strip=True)
 
-    h1 = soup.find("h1")
-    if h1:
-        description_parts = []
-        node = h1.find_next_sibling()
-        steps = 0
-        while node and steps < 8:
-            text = node.get_text(" ", strip=True)
-            if text and not re.match(r"^(Apply|Share|Related Jobs)\b", text, re.I):
-                description_parts.append(text)
-            node = node.find_next_sibling()
-            steps += 1
-        if description_parts:
-            details["description"] = " ".join(description_parts)
+    type_match = re.search(r"Type of work\s*(.+?)\s*(?:Country\b|Start date\b|$)", full_text, re.I)
+    if type_match:
+        details["Work Type"] = type_match.group(1).strip()
+
+    country_match = re.search(r"Country\s*(.+?)\s*(?:Start date\b|Type of work\b|$)", full_text, re.I)
+    if country_match:
+        details["Location"] = country_match.group(1).strip()
+
+    start_match = re.search(r"Start date\s*(.+?)\s*(?:Job description\b|Take the next step\b|Type of work\b|Country\b|$)", full_text, re.I)
+    if start_match:
+        details["Start Date"] = start_match.group(1).strip()
+
+    desc_match = re.search(
+        r"Job description\s*(.+?)\s*(?:Take the next step\b|Apply for this job\b|$)",
+        full_text,
+        re.I | re.S,
+    )
+    if desc_match:
+        description = desc_match.group(1).strip()
+
+        h1 = soup.find("h1")
+        title_text = h1.get_text(strip=True) if h1 else ""
+        if title_text and description.lower().startswith(title_text.lower()):
+            description = description[len(title_text):].strip(" –—-:")
+
+        details["description"] = description
+        details["description_limit"] = 500
 
     return details
 

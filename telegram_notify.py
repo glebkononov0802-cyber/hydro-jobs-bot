@@ -20,13 +20,14 @@ def build_message(job: dict, score: int, details: dict) -> str:
     if details.get("Company"):
         lines.append(f"🏗 {details['Company']}")
 
+    if details.get("Project Type"):
+        lines.append(f"📁 {details['Project Type']}")
+
     top_line = []
     if details.get("Location"):
         top_line.append(f"📍 {details['Location']}")
     if details.get("Work Type"):
         top_line.append(f"📄 {details['Work Type']}")
-    if details.get("Project Type"):
-        top_line.append(f"📄 {details['Project Type']}")
     if details.get("Salary"):
         top_line.append(f"💰 {details['Salary']}")
     if top_line:
@@ -58,8 +59,6 @@ def build_message(job: dict, score: int, details: dict) -> str:
         lines.append(f"✉️ {details['Contact Details']}")
     if details.get("Contact Phone"):
         lines.append(f"📞 {details['Contact Phone']}")
-    if details.get("Reference"):
-        lines.append(f"#️⃣ Ref: {details['Reference']}")
 
     # Любые прочие поля, которые источник прислал под своими названиями
     # (например кастомные поля Precise: Role, Project Type и т.п.) —

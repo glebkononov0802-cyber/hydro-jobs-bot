@@ -54,7 +54,10 @@ def _absolute_url(url: str) -> str:
 
 def _build_job_entry(item: dict) -> dict | None:
     title = item.get("job_title") or ""
-    url = item.get("URL") or item.get("apply_url") or ""
+    # apply_url обычно рабочая обычная ссылка (не завязана на JS-роутинг
+    # сайта), а поле URL иногда оказывается внутренним SPA-маршрутом,
+    # который отдаёт 404 при прямом переходе — поэтому предпочитаем apply_url
+    url = item.get("apply_url") or item.get("URL") or ""
     if not title or not url:
         return None
 
@@ -197,7 +200,7 @@ def fetch_job_details(url: str) -> dict:
             if not isinstance(item, dict):
                 continue
 
-            item_url = _absolute_url(item.get("URL") or item.get("apply_url") or "")
+            item_url = _absolute_url(item.get("apply_url") or item.get("URL") or "")
             if item_url != url:
                 continue
 

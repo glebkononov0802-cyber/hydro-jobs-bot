@@ -121,11 +121,6 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
 
         print(f"[DEBUG] Precise: вакансий на странице {page}: {len(job_list)}")
 
-        if page == 1 and job_list:
-            import json as _json
-            print("[DEBUG] Precise: полный JSON первой вакансии для сверки полей:")
-            print(_json.dumps(job_list[0], ensure_ascii=False, indent=2)[:4000])
-
         if not job_list:
             break
 
@@ -142,13 +137,23 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
 
 def fetch_job_details(url: str) -> dict:
     """
-    Страница вакансии — часть SPA и не открывается напрямую снаружи
-    (подтверждено на практике), поэтому все детали достаём из того же
-    API, что и список. Кастомные поля сайта (Role/Project Type/Software/
-    Duration/... — точные названия видны в логе через полный JSON-дамп
-    в fetch_jobs) добавляются автоматически под своими же названиями.
+    Страница вакансии — часть SPA и не открывается напрямую снаружи,
+    поэтому все детали достаём из API. job_body содержит HTML с теми же
+    подписанными полями (Role/Project Type/Start Date/Duration/Software/
+    Requirements/Location), что видно на самом сайте — разбираем их по
+    тегам <strong>.
     """
     details: dict = {}
+
+    label_map = {
+        "project type": "Project Type",
+        "start date": "Start Date",
+        "duration": "Duration",
+        "software": "Software",
+        "requirements": "Requirements",
+        "location": "Location",
+        # "role" сознательно пропускаем — дублирует заголовок вакансии
+    }
 
     for page in range(1, 3):
         job_list = _fetch_page(page)
@@ -170,16 +175,33 @@ def fetch_job_details(url: str) -> dict:
             if item.get("location_label"):
                 details["Location"] = item["location_label"]
 
-            body = _strip_html(
-                item.get("job_description") or item.get("short_description") or item.get("job_body") or ""
-            )
-            if body:
-                details["description"] = body
+            if item.get("short_description"):
+                details["description"] = item["short_description"]
 
-            # Контакт: имя + телефон одной строкой, email следующей
+            # job_body — HTML с подписанными полями через <strong>Label</strong>
+            job_body_html = item.get("job_body") or ""
+            if job_body_html:
+                body_soup = BeautifulSoup(job_body_html, "html.parser")
+                for p in body_soup.find_all("p"):
+                    strong = p.find("strong")
+                    if not strong:
+                        continue
+                    label_raw = strong.get_text(strip=True).rstrip(":").strip().lower()
+                    target_key = label_map.get(label_raw)
+                    if not target_key:
+                        continue
+                    full_p_text = p.get_text(" ", strip=True)
+                    value = full_p_text[len(strong.get_text(strip=True)):].strip()
+                    if value:
+                        details[target_key] = value
+
+            # Контакт: имя + телефон одной строкой, email следующей —
+            # реальный телефон лежит внутри вложенного consultant_detail
             name = item.get("consultant_name")
-            phone = item.get("consultant_detail")
+            consultant_detail = item.get("consultant_detail")
+            phone = consultant_detail.get("phone") if isinstance(consultant_detail, dict) else None
             email = item.get("consultant_email") or item.get("apply_email")
+
             contact_lines = []
             first_line = " ".join(str(p) for p in (name, phone) if p)
             if first_line:
@@ -189,12 +211,13 @@ def fetch_job_details(url: str) -> dict:
             if contact_lines:
                 details["Contact Details"] = "\n".join(contact_lines)
 
-            # Кастомные поля сайта (лейбл берём прямо из данных, а не гадаем)
-            for i in range(1, 5):
-                label = item.get(f"applyflow_custom_{i}")
-                value = item.get(f"custom_detail_{i}")
-                if label and value:
-                    details[str(label)] = str(value)
+            # Тип занятости (Contract/Permanent) — первое кастомное поле;
+            # приходит как список с одним объектом, а не просто строкой
+            custom_1 = item.get("custom_detail_1")
+            if isinstance(custom_1, list) and custom_1 and isinstance(custom_1[0], dict):
+                work_type = custom_1[0].get("value")
+                if work_type:
+                    details["Work Type"] = work_type
 
             ref = item.get("source_reference") or item.get("advertiser_reference")
             if ref:

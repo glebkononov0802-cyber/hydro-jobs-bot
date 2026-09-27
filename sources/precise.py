@@ -121,6 +121,11 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
 
         print(f"[DEBUG] Precise: вакансий на странице {page}: {len(job_list)}")
 
+        if page == 1 and job_list:
+            import json as _json
+            print("[DEBUG] Precise: полный JSON первой вакансии для сверки полей:")
+            print(_json.dumps(job_list[0], ensure_ascii=False, indent=2)[:4000])
+
         if not job_list:
             break
 
@@ -137,93 +142,69 @@ def fetch_jobs(max_pages: int = 2) -> list[dict]:
 
 def fetch_job_details(url: str) -> dict:
     """
-    Открывает страницу конкретной вакансии (не API) и вытаскивает
-    Role/Project Type/Start Date/Duration/Software/Requirements/Location
-    плюс контакт консультанта (имя, телефон, email).
-
-    Структура страницы не проверена вживую (сайт недоступен для прямого
-    фетча из среды разработки) — пробуем и табличный, и текстовый разбор,
-    с запасным вариантом через API, если разметка страницы не совпадёт
-    с ожидаемой.
+    Страница вакансии — часть SPA и не открывается напрямую снаружи
+    (подтверждено на практике), поэтому все детали достаём из того же
+    API, что и список. Кастомные поля сайта (Role/Project Type/Software/
+    Duration/... — точные названия видны в логе через полный JSON-дамп
+    в fetch_jobs) добавляются автоматически под своими же названиями.
     """
     details: dict = {}
 
-    try:
-        resp = requests.get(url, headers={"User-Agent": HEADERS["User-Agent"]}, timeout=20)
-        resp.encoding = "utf-8"
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            full_text = soup.get_text(" ", strip=True)
+    for page in range(1, 3):
+        job_list = _fetch_page(page)
+        if not job_list:
+            break
 
-            known_labels = ["Role", "Project Type", "Start Date", "Duration", "Software", "Requirements", "Location", "Consultant"]
-            label_pattern = r"(" + "|".join(re.escape(l) for l in known_labels) + r")\s*:?\s*"
-            matches = list(re.finditer(label_pattern, full_text))
-            for i, m in enumerate(matches):
-                start = m.end()
-                end = matches[i + 1].start() if i + 1 < len(matches) else start + 120
-                value = full_text[start:end].strip()
-                if value:
-                    details[m.group(1)] = value
-
-            # Консультант: имя обычно сразу после слова "Consultant",
-            # телефон и email — из ссылок tel:/mailto:
-            consultant_match = re.search(r"Consultant\s*([A-Z][a-zA-Z .'-]+)", full_text)
-            phone_link = soup.find("a", href=re.compile(r"^tel:"))
-            email_link = soup.find("a", href=re.compile(r"^mailto:"))
-
-            contact_parts = []
-            if consultant_match:
-                contact_parts.append(consultant_match.group(1).strip())
-            if phone_link:
-                contact_parts.append(phone_link.get_text(strip=True))
-            if email_link:
-                contact_parts.append(email_link.get_text(strip=True))
-            if contact_parts:
-                details["Contact Details"] = " · ".join(contact_parts)
-    except requests.RequestException as e:
-        print(f"[WARN] Precise: не удалось открыть страницу вакансии {url}: {e}")
-
-    if details.get("Requirements"):
-        details["description"] = details.pop("Requirements")
-
-    if not details:
-        # HTML-страница не дала данных (сайт — SPA, страница вакансии не
-        # открывается напрямую снаружи) — берём то, что уже есть в API
-        for page in range(1, 3):
-            job_list = _fetch_page(page)
-            if not job_list:
+        found_item = None
+        for item in job_list:
+            if not isinstance(item, dict):
+                continue
+            item_url = _absolute_url(item.get("apply_url") or item.get("URL") or "")
+            if item_url == url:
+                found_item = item
                 break
 
-            found_item = None
-            for item in job_list:
-                if not isinstance(item, dict):
-                    continue
-                item_url = _absolute_url(item.get("apply_url") or item.get("URL") or "")
-                if item_url == url:
-                    found_item = item
-                    break
+        if found_item:
+            item = found_item
 
-            if found_item:
-                if found_item.get("location_label"):
-                    details["Location"] = found_item["location_label"]
+            if item.get("location_label"):
+                details["Location"] = item["location_label"]
 
-                body = _strip_html(
-                    found_item.get("job_description")
-                    or found_item.get("short_description")
-                    or found_item.get("job_body")
-                    or ""
-                )
-                if body:
-                    details["description"] = body
+            body = _strip_html(
+                item.get("job_description") or item.get("short_description") or item.get("job_body") or ""
+            )
+            if body:
+                details["description"] = body
 
-                contact = found_item.get("consultant_email") or found_item.get("apply_email")
-                if contact:
-                    details["Contact Details"] = contact
+            # Контакт: имя + телефон одной строкой, email следующей
+            name = item.get("consultant_name")
+            phone = item.get("consultant_detail")
+            email = item.get("consultant_email") or item.get("apply_email")
+            contact_lines = []
+            first_line = " ".join(str(p) for p in (name, phone) if p)
+            if first_line:
+                contact_lines.append(first_line)
+            if email:
+                contact_lines.append(str(email))
+            if contact_lines:
+                details["Contact Details"] = "\n".join(contact_lines)
 
-                pay = found_item.get("pay_description")
-                if pay:
-                    details["Salary"] = pay
-                break
+            # Кастомные поля сайта (лейбл берём прямо из данных, а не гадаем)
+            for i in range(1, 5):
+                label = item.get(f"applyflow_custom_{i}")
+                value = item.get(f"custom_detail_{i}")
+                if label and value:
+                    details[str(label)] = str(value)
+
+            ref = item.get("source_reference") or item.get("advertiser_reference")
+            if ref:
+                details["Reference"] = str(ref)
+
+            pay = item.get("pay_description")
+            if pay:
+                details["Salary"] = pay
+
+            break
 
     # Прямые ссылки на конкретную вакансию у Precise не открываются
     # снаружи (SPA без серверных маршрутов) — даём рабочую ссылку на

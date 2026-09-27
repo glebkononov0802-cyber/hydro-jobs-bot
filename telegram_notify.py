@@ -58,6 +58,23 @@ def build_message(job: dict, score: int, details: dict) -> str:
         lines.append(f"✉️ {details['Contact Details']}")
     if details.get("Contact Phone"):
         lines.append(f"📞 {details['Contact Phone']}")
+    if details.get("Reference"):
+        lines.append(f"#️⃣ Ref: {details['Reference']}")
+
+    # Любые прочие поля, которые источник прислал под своими названиями
+    # (например кастомные поля Precise: Role, Project Type и т.п.) —
+    # показываем построчно, не теряя их, даже если точное имя заранее
+    # не было известно
+    known_keys = {
+        "Location", "Work Type", "Project Type", "Salary", "Start Date", "Posted",
+        "Duration", "Software", "Experience", "Positions", "Scope",
+        "Contact Details", "Contact Phone", "Reference", "Company",
+        "description", "description_limit", "full_description", "display_url",
+    }
+    for key, value in details.items():
+        if key in known_keys or not value:
+            continue
+        lines.append(f"🔹 {key}: {value}")
 
     description = details.get("description", "").strip()
     if description:

@@ -186,40 +186,49 @@ def fetch_job_details(url: str) -> dict:
     if details.get("Requirements"):
         details["description"] = details.pop("Requirements")
 
-    if details:
-        return details
+    if not details:
+        # HTML-страница не дала данных (сайт — SPA, страница вакансии не
+        # открывается напрямую снаружи) — берём то, что уже есть в API
+        for page in range(1, 3):
+            job_list = _fetch_page(page)
+            if not job_list:
+                break
 
-    # Запасной вариант — если разметка страницы не совпала с ожидаемой,
-    # берём хотя бы то, что уже есть в API (описание/локация/email)
-    for page in range(1, 3):
-        job_list = _fetch_page(page)
-        if not job_list:
-            break
+            found_item = None
+            for item in job_list:
+                if not isinstance(item, dict):
+                    continue
+                item_url = _absolute_url(item.get("apply_url") or item.get("URL") or "")
+                if item_url == url:
+                    found_item = item
+                    break
 
-        for item in job_list:
-            if not isinstance(item, dict):
-                continue
+            if found_item:
+                if found_item.get("location_label"):
+                    details["Location"] = found_item["location_label"]
 
-            item_url = _absolute_url(item.get("apply_url") or item.get("URL") or "")
-            if item_url != url:
-                continue
+                body = _strip_html(
+                    found_item.get("job_description")
+                    or found_item.get("short_description")
+                    or found_item.get("job_body")
+                    or ""
+                )
+                if body:
+                    details["description"] = body
 
-            if item.get("location_label"):
-                details["Location"] = item["location_label"]
+                contact = found_item.get("consultant_email") or found_item.get("apply_email")
+                if contact:
+                    details["Contact Details"] = contact
 
-            body = _strip_html(item.get("job_description") or item.get("short_description") or item.get("job_body") or "")
-            if body:
-                details["description"] = body
+                pay = found_item.get("pay_description")
+                if pay:
+                    details["Salary"] = pay
+                break
 
-            contact = item.get("consultant_email") or item.get("apply_email")
-            if contact:
-                details["Contact Details"] = contact
-
-            pay = item.get("pay_description")
-            if pay:
-                details["Salary"] = pay
-
-            return details
+    # Прямые ссылки на конкретную вакансию у Precise не открываются
+    # снаружи (SPA без серверных маршрутов) — даём рабочую ссылку на
+    # общий список вакансий вместо битой, название уже есть в сообщении
+    details["display_url"] = "https://www.preciseconsultants.com/jobs/"
 
     return details
 

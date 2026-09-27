@@ -107,8 +107,10 @@ def main():
             except Exception as e:
                 print(f"[WARN] Не удалось получить детали {job.url}: {e}")
 
+        display_url = details.get("display_url", job.url)
+
         ok = send_job(
-            {"title": job.title, "url": job.url, "source": job.source},
+            {"title": job.title, "url": display_url, "source": job.source},
             job.score,
             details,
         )

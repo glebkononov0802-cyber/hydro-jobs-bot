@@ -44,24 +44,26 @@ def _strip_html(text: str) -> str:
     return BeautifulSoup(text, "html.parser").get_text(" ", strip=True)
 
 
-def _absolute_url(url: str) -> str:
-    if not url:
-        return url
-    if url.startswith("http://") or url.startswith("https://"):
-        return url
-    return BASE_URL + "/" + url.lstrip("/")
+def _jobview_url(item: dict) -> str | None:
+    """
+    Настоящая, рабочая ссылка на страницу вакансии — формат
+    /jobview/<slug-из-названия>/<uuid>/. И URL, и apply_url оказались
+    нерабочими (SPA-роуты, 404 при прямом переходе), а вот этот формат
+    подтверждён вживую.
+    """
+    job_uuid = item.get("uuid")
+    title = item.get("job_title")
+    if not job_uuid or not title:
+        return None
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    return f"{BASE_URL}/jobview/{slug}/{job_uuid}/"
 
 
 def _build_job_entry(item: dict) -> dict | None:
     title = item.get("job_title") or ""
-    # apply_url обычно рабочая обычная ссылка (не завязана на JS-роутинг
-    # сайта), а поле URL иногда оказывается внутренним SPA-маршрутом,
-    # который отдаёт 404 при прямом переходе — поэтому предпочитаем apply_url
-    url = item.get("apply_url") or item.get("URL") or ""
+    url = _jobview_url(item)
     if not title or not url:
         return None
-
-    url = _absolute_url(url)
 
     location = item.get("location_label") or ""
     body = _strip_html(item.get("job_description") or item.get("short_description") or item.get("job_body") or "")
@@ -164,7 +166,7 @@ def fetch_job_details(url: str) -> dict:
         for item in job_list:
             if not isinstance(item, dict):
                 continue
-            item_url = _absolute_url(item.get("apply_url") or item.get("URL") or "")
+            item_url = _jobview_url(item)
             if item_url == url:
                 found_item = item
                 break
@@ -228,11 +230,6 @@ def fetch_job_details(url: str) -> dict:
                 details["Salary"] = pay
 
             break
-
-    # Прямые ссылки на конкретную вакансию у Precise не открываются
-    # снаружи (SPA без серверных маршрутов) — даём рабочую ссылку на
-    # общий список вакансий вместо битой, название уже есть в сообщении
-    details["display_url"] = "https://www.preciseconsultants.com/jobs/"
 
     return details
 

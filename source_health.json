@@ -34,5 +34,13 @@
   "css": {
     "consecutive_failures": 0,
     "alerted": false
+  },
+  "wrs": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "sa": {
+    "consecutive_failures": 0,
+    "alerted": false
   }
 }

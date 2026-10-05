@@ -46,5 +46,13 @@
   "gerecruit": {
     "consecutive_failures": 0,
     "alerted": false
+  },
+  "cmsourcing": {
+    "consecutive_failures": 0,
+    "alerted": false
+  },
+  "hydroeg": {
+    "consecutive_failures": 0,
+    "alerted": false
   }
 }

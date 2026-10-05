@@ -16,7 +16,7 @@ from job_filter import filter_jobs
 from seen_store import load_seen, save_seen
 from health_store import load_health, save_health
 from telegram_notify import send_job, send_alert
-from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas
+from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship
 
 # Название источника -> (функция получения списка вакансий, человекочитаемое имя)
 SOURCES = {
@@ -28,6 +28,7 @@ SOURCES = {
     "precise": (precise.fetch_jobs, "Precise Consultants"),
     "elevate": (elevate.fetch_jobs, "Elevate Offshore"),
     "atlas": (atlas.fetch_jobs, "Atlas NextWave"),
+    "css": (css_ship.fetch_jobs, "CSS Ship Services"),
 }
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
@@ -42,6 +43,7 @@ DETAIL_FETCHERS = {
     "precise": precise.fetch_job_details,
     "elevate": elevate.fetch_job_details,
     "atlas": atlas.fetch_job_details,
+    "css": css_ship.fetch_job_details,
 }
 
 # Алерт шлём только после стольки неудачных попыток подряд —

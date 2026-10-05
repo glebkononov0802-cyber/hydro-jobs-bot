@@ -23,7 +23,7 @@ from stats_store import (
     load_stats, save_stats, record_sent, weekly_counts, report_due, build_report,
 )
 from telegram_notify import send_job, send_alert
-from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world, gerecruit
+from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world, gerecruit, cmsourcing, hydroeg
 
 # Название источника -> (функция получения списка вакансий, человекочитаемое имя)
 SOURCES = {
@@ -39,6 +39,8 @@ SOURCES = {
     "wrs": (wrs.fetch_jobs, "WRS (Worldwide Recruitment Solutions)"),
     "sa": (sa_world.fetch_jobs, "SA World"),
     "gerecruit": (gerecruit.fetch_jobs, "gerecruit"),
+    "cmsourcing": (cmsourcing.fetch_jobs, "CMSourcing"),
+    "hydroeg": (hydroeg.fetch_jobs, "Hydro Energy Group"),
 }
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
@@ -57,6 +59,8 @@ DETAIL_FETCHERS = {
     "wrs": wrs.fetch_job_details,
     "sa": sa_world.fetch_job_details,
     "gerecruit": gerecruit.fetch_job_details,
+    "cmsourcing": cmsourcing.fetch_job_details,
+    "hydroeg": hydroeg.fetch_job_details,
 }
 
 # "Тихий первый запуск": у этих источников на сайте много устаревших вакансий,

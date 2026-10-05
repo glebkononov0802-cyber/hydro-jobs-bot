@@ -62,13 +62,15 @@ def _parse_listing(soup: BeautifulSoup) -> list[dict]:
         if m:
             start = m.group(1).strip()
 
-        # "Survey - Engineer" -> "Survey Engineer", чтобы фильтр узнал фразу
-        category_norm = category.replace(" - ", " ")
+        # Категорию подмешиваем в оценку ТОЛЬКО для Data Processing — там
+        # названия бывают нестандартные. Для остальных ("Survey - Surveyor"
+        # сама даёт +8) это пропускало лишние роли вроде Scanfish Pilot.
+        category_hint = category.replace(" - ", " ") if "data processing" in category.lower() else ""
 
         jobs.append({
             "title": title,
             "url": href,
-            "description": f"{category_norm}. {location}. Start {start}".strip(),
+            "description": f"{category_hint}. {location}. Start {start}".strip(". ").strip(),
             "source": "css",
         })
 
@@ -151,6 +153,9 @@ def fetch_job_details(url: str) -> dict:
     location = _value_after(lines, "Location", details_idx)
     if location:
         details["Location"] = location
+    category = _value_after(lines, "Category", details_idx)
+    if category:
+        details["Category"] = category
     start_date = _value_after(lines, "Start Date", details_idx)
     if start_date:
         details["Start Date"] = start_date
@@ -163,6 +168,8 @@ def fetch_job_details(url: str) -> dict:
         for line in lines[lines.index("Description") + 1:]:
             if line.startswith("Interested?") or line in ("Details", "The details"):
                 break
+            if line.lower() == "apply now":
+                continue
             if line.endswith(":") and line.rstrip(":") in ("Position", "Experience", "Documentation"):
                 current = line.rstrip(":")
                 sections[current] = []
@@ -177,11 +184,19 @@ def fetch_job_details(url: str) -> dict:
     position_text = " ".join(sections.get("Position", []))
     docs_text = ", ".join(sections.get("Documentation", []))
     # убираем из Documentation служебную фразу про актуальность документов
-    docs_text = re.sub(r"^For this job the following certificate/documents need to be up to date:\s*,?\s*", "", docs_text)
+    docs_text = re.sub(
+        r"^For this job,?\s+the following certificates?\s*/\s*documents?\s+(?:need|needs)\s+to\s+be\s+up\s+to\s+date:?\s*,?\s*",
+        "",
+        docs_text,
+        flags=re.I,
+    )
 
-    duration_match = re.search(r"Duration:\s*(.+?)(?=\s+(?:Please|Note|Joining)\b|$)", position_text)
+    duration_match = re.search(
+        r"Duration:\s*(.+?)(?=\s+[A-Z][A-Za-z]*(?:\s[A-Za-z]+)?:|\s+(?:Please|Note|Joining|If|Apply)\b|$)",
+        position_text,
+    )
     if duration_match:
-        details["Duration"] = duration_match.group(1).strip()
+        details["Duration"] = duration_match.group(1).strip()[:40]
 
     if sections.get("Experience"):
         details["Experience"] = " ".join(sections["Experience"])
@@ -189,6 +204,7 @@ def fetch_job_details(url: str) -> dict:
     description = position_text
     if docs_text:
         description = f"{description} Docs: {docs_text}".strip()
+    description = re.sub(r"\s*Apply now\s*$", "", description, flags=re.I).strip()
     if description:
         details["description"] = description
         details["description_limit"] = 600

@@ -12,9 +12,16 @@ main.py — точка входа Hydro Jobs Bot.
    дедупликация, отправка новых релевантных вакансий.
 """
 
+import json
+import os
+from datetime import datetime, timezone
+
 from job_filter import filter_jobs, ScoredJob
 from seen_store import load_seen, save_seen
 from health_store import load_health, save_health
+from stats_store import (
+    load_stats, save_stats, record_sent, weekly_counts, report_due, build_report,
+)
 from telegram_notify import send_job, send_alert
 from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world, gerecruit
 
@@ -105,6 +112,28 @@ def fetch_all_jobs() -> list[dict]:
     return all_jobs
 
 
+def send_weekly_report_if_due(stats: dict) -> None:
+    """
+    Раз в неделю шлёт короткое "Бот жив": сколько вакансий пришло и какие
+    источники работают (🟢) / не работают (🔴). Принудительно — через
+    FORCE_REPORT=true (в GitHub: Run workflow -> галочка send_report).
+    """
+    now = datetime.now(timezone.utc)
+    force = os.environ.get("FORCE_REPORT", "").strip().lower() == "true"
+    if not report_due(stats, now, force):
+        return
+
+    total, per_source = weekly_counts(stats, now)
+    labels = {name: label for name, (_, label) in SOURCES.items()}
+    text = build_report(total, per_source, load_health(), labels)
+
+    if send_alert(text):
+        stats["last_report"] = now.isoformat(timespec="seconds")
+        print(f"[REPORT] Недельный отчёт отправлен (вакансий за неделю: {total})")
+    else:
+        print("[REPORT] Не удалось отправить недельный отчёт — попробую при следующем запуске")
+
+
 def main():
     all_jobs = fetch_all_jobs()
 
@@ -133,6 +162,9 @@ def main():
         new_jobs = [j for j in new_jobs if j.source not in silent_sources]
         print(f"[SEED] Тихий первый запуск для {sorted(silent_sources)}: запомнено {len(silent_jobs)} вакансий без отправки")
 
+    stats = load_stats()
+    stats_before = json.dumps(stats, sort_keys=True)
+
     sent_count = 0
     for job in new_jobs:
         details = {}
@@ -153,10 +185,16 @@ def main():
         if ok:
             seen.add(job.url)
             sent_count += 1
+            if not details.get("raw_mode"):
+                record_sent(stats, job.source)
         # если Telegram вернул ошибку — НЕ добавляем в seen,
         # чтобы бот попробовал отправить эту же вакансию в следующий раз
 
     save_seen(seen)
+
+    send_weekly_report_if_due(stats)
+    if json.dumps(stats, sort_keys=True) != stats_before:
+        save_stats(stats)
 
     print(
         f"Всего найдено: {len(all_jobs)} | "

@@ -42,5 +42,9 @@
   "sa": {
     "consecutive_failures": 0,
     "alerted": false
+  },
+  "gerecruit": {
+    "consecutive_failures": 0,
+    "alerted": false
   }
 }

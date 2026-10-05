@@ -12,11 +12,11 @@ main.py — точка входа Hydro Jobs Bot.
    дедупликация, отправка новых релевантных вакансий.
 """
 
-from job_filter import filter_jobs
+from job_filter import filter_jobs, ScoredJob
 from seen_store import load_seen, save_seen
 from health_store import load_health, save_health
 from telegram_notify import send_job, send_alert
-from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world
+from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world, gerecruit
 
 # Название источника -> (функция получения списка вакансий, человекочитаемое имя)
 SOURCES = {
@@ -31,6 +31,7 @@ SOURCES = {
     "css": (css_ship.fetch_jobs, "CSS Ship Services"),
     "wrs": (wrs.fetch_jobs, "WRS (Worldwide Recruitment Solutions)"),
     "sa": (sa_world.fetch_jobs, "SA World"),
+    "gerecruit": (gerecruit.fetch_jobs, "gerecruit"),
 }
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
@@ -48,6 +49,7 @@ DETAIL_FETCHERS = {
     "css": css_ship.fetch_job_details,
     "wrs": wrs.fetch_job_details,
     "sa": sa_world.fetch_job_details,
+    "gerecruit": gerecruit.fetch_job_details,
 }
 
 # "Тихий первый запуск": у этих источников на сайте много устаревших вакансий,
@@ -107,6 +109,13 @@ def main():
     all_jobs = fetch_all_jobs()
 
     scored = filter_jobs(all_jobs)  # уже отсортировано по score, только релевантные
+
+    # Записи с флагом force (например "сырой" режим gerecruit) идут мимо
+    # keyword-фильтра — их нужно увидеть в любом случае
+    already = {j.url for j in scored}
+    for j in all_jobs:
+        if j.get("force") and j["url"] not in already:
+            scored.append(ScoredJob(title=j["title"], url=j["url"], score=0, source=j.get("source", "")))
 
     seen = load_seen()
     new_jobs = [j for j in scored if j.url not in seen]

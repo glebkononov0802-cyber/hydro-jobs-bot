@@ -15,7 +15,8 @@ API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 
 def build_message(job: dict, score: int, details: dict) -> str:
-    lines = [f"🟢 HYDRO JOB (+{score})", "", job["title"], f"🏢 {job['source'].upper()}"]
+    header = "🧪 RAW (сырой режим, нужен для настройки парсера)" if details.get("raw_mode") else f"🟢 HYDRO JOB (+{score})"
+    lines = [header, "", job["title"], f"🏢 {job['source'].upper()}"]
 
     if details.get("Company"):
         lines.append(f"🏗 {details['Company']}")
@@ -71,7 +72,7 @@ def build_message(job: dict, score: int, details: dict) -> str:
         "Location", "Work Type", "Project Type", "Category", "Salary", "Start Date", "Posted",
         "Duration", "Software", "Experience", "Positions", "Scope",
         "Contact Details", "Contact Phone", "Reference", "Company",
-        "description", "description_limit", "full_description", "display_url",
+        "description", "description_limit", "full_description", "display_url", "raw_mode",
     }
     for key, value in details.items():
         if key in known_keys or not value:

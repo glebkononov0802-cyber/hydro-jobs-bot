@@ -16,7 +16,7 @@ from job_filter import filter_jobs
 from seen_store import load_seen, save_seen
 from health_store import load_health, save_health
 from telegram_notify import send_job, send_alert
-from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship
+from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world
 
 # Название источника -> (функция получения списка вакансий, человекочитаемое имя)
 SOURCES = {
@@ -29,6 +29,8 @@ SOURCES = {
     "elevate": (elevate.fetch_jobs, "Elevate Offshore"),
     "atlas": (atlas.fetch_jobs, "Atlas NextWave"),
     "css": (css_ship.fetch_jobs, "CSS Ship Services"),
+    "wrs": (wrs.fetch_jobs, "WRS (Worldwide Recruitment Solutions)"),
+    "sa": (sa_world.fetch_jobs, "SA World"),
 }
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
@@ -44,6 +46,16 @@ DETAIL_FETCHERS = {
     "elevate": elevate.fetch_job_details,
     "atlas": atlas.fetch_job_details,
     "css": css_ship.fetch_job_details,
+    "wrs": wrs.fetch_job_details,
+    "sa": sa_world.fetch_job_details,
+}
+
+# "Тихий первый запуск": у этих источников на сайте много устаревших вакансий,
+# поэтому при самом первом запуске все уже существующие вакансии просто
+# помечаются как виденные (без отправки в Telegram), а дальше приходят только
+# по-настоящему новые. Источник -> начало URL его вакансий.
+SILENT_FIRST_RUN = {
+    "sa": "https://www.sa-world.com",
 }
 
 # Алерт шлём только после стольки неудачных попыток подряд —
@@ -98,6 +110,19 @@ def main():
 
     seen = load_seen()
     new_jobs = [j for j in scored if j.url not in seen]
+
+    # Для источников с "тихим первым запуском": если от них в seen ещё ничего
+    # нет — молча запоминаем всё найденное и ничего не отправляем
+    silent_sources = {
+        src for src, prefix in SILENT_FIRST_RUN.items()
+        if not any(u.startswith(prefix) for u in seen)
+    }
+    if silent_sources:
+        silent_jobs = [j for j in new_jobs if j.source in silent_sources]
+        for j in silent_jobs:
+            seen.add(j.url)
+        new_jobs = [j for j in new_jobs if j.source not in silent_sources]
+        print(f"[SEED] Тихий первый запуск для {sorted(silent_sources)}: запомнено {len(silent_jobs)} вакансий без отправки")
 
     sent_count = 0
     for job in new_jobs:

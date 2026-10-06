@@ -21,8 +21,9 @@ def build_message(job: dict, score: int, details: dict) -> str:
     if details.get("Company"):
         lines.append(f"🏗 {details['Company']}")
 
-    if details.get("Category"):
-        lines.append(f"📂 {details['Category']}")
+    category = details.get("Category") or details.get("Profession")
+    if category:
+        lines.append(f"📂 {category}")
 
     if details.get("Project Type"):
         lines.append(f"📁 {details['Project Type']}")
@@ -71,7 +72,8 @@ def build_message(job: dict, score: int, details: dict) -> str:
     known_keys = {
         "Location", "Work Type", "Project Type", "Category", "Salary", "Start Date", "Posted",
         "Duration", "Software", "Experience", "Positions", "Scope",
-        "Contact Details", "Contact Phone", "Reference", "Company",
+        "Contact Details", "Contact Phone", "Reference", "Reference Number",
+        "Profession", "Company",
         "description", "description_limit", "full_description", "display_url", "raw_mode",
     }
     for key, value in details.items():

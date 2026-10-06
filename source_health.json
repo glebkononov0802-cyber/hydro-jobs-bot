@@ -54,5 +54,9 @@
   "hydroeg": {
     "consecutive_failures": 0,
     "alerted": false
+  },
+  "ips": {
+    "consecutive_failures": 0,
+    "alerted": false
   }
 }

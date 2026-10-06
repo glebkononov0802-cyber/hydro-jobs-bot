@@ -65,15 +65,6 @@ DETAIL_FETCHERS = {
     "ips": ips.fetch_job_details,
 }
 
-# "Тихий первый запуск": у этих источников на сайте много устаревших вакансий,
-# поэтому при самом первом запуске все уже существующие вакансии просто
-# помечаются как виденные (без отправки в Telegram), а дальше приходят только
-# по-настоящему новые. Источник -> начало URL его вакансий.
-SILENT_FIRST_RUN = {
-    "sa": "https://www.sa-world.com",
-    "ips": "https://ipspowerfulpeople.com",
-}
-
 # Алерт шлём только после стольки неудачных попыток подряд —
 # при cron раз в 3 часа это примерно 6 часов реальной проблемы,
 # а не разовый временный сбой сайта.
@@ -155,19 +146,6 @@ def main():
 
     seen = load_seen()
     new_jobs = [j for j in scored if j.url not in seen]
-
-    # Для источников с "тихим первым запуском": если от них в seen ещё ничего
-    # нет — молча запоминаем всё найденное и ничего не отправляем
-    silent_sources = {
-        src for src, prefix in SILENT_FIRST_RUN.items()
-        if not any(u.startswith(prefix) for u in seen)
-    }
-    if silent_sources:
-        silent_jobs = [j for j in new_jobs if j.source in silent_sources]
-        for j in silent_jobs:
-            seen.add(j.url)
-        new_jobs = [j for j in new_jobs if j.source not in silent_sources]
-        print(f"[SEED] Тихий первый запуск для {sorted(silent_sources)}: запомнено {len(silent_jobs)} вакансий без отправки")
 
     stats = load_stats()
     stats_before = json.dumps(stats, sort_keys=True)

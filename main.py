@@ -23,7 +23,7 @@ from stats_store import (
     load_stats, save_stats, record_sent, weekly_counts, report_due, build_report,
 )
 from telegram_notify import send_job, send_alert
-from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world, gerecruit, cmsourcing, hydroeg
+from sources import utm, agr, oceancrew, insight, etpm, precise, elevate, atlas, css_ship, wrs, sa_world, gerecruit, cmsourcing, hydroeg, ips
 
 # Название источника -> (функция получения списка вакансий, человекочитаемое имя)
 SOURCES = {
@@ -41,6 +41,7 @@ SOURCES = {
     "gerecruit": (gerecruit.fetch_jobs, "gerecruit"),
     "cmsourcing": (cmsourcing.fetch_jobs, "CMSourcing"),
     "hydroeg": (hydroeg.fetch_jobs, "Hydro Energy Group"),
+    "ips": (ips.fetch_jobs, "iPS Powerful People"),
 }
 
 # Для каждого источника — функция, которая по URL вакансии достаёт
@@ -61,6 +62,7 @@ DETAIL_FETCHERS = {
     "gerecruit": gerecruit.fetch_job_details,
     "cmsourcing": cmsourcing.fetch_job_details,
     "hydroeg": hydroeg.fetch_job_details,
+    "ips": ips.fetch_job_details,
 }
 
 # "Тихий первый запуск": у этих источников на сайте много устаревших вакансий,
@@ -69,6 +71,7 @@ DETAIL_FETCHERS = {
 # по-настоящему новые. Источник -> начало URL его вакансий.
 SILENT_FIRST_RUN = {
     "sa": "https://www.sa-world.com",
+    "ips": "https://ipspowerfulpeople.com",
 }
 
 # Алерт шлём только после стольки неудачных попыток подряд —

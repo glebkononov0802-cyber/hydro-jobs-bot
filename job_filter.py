@@ -83,7 +83,7 @@ NEGATIVE_KEYWORDS: dict[str, int] = {
 REQUIRE_ANY_OF = [
     "survey", "surveyor", "hydro", "offshore", "marine",
     "qinsy", "eiva", "mbes", "multibeam", "geophysic", "geotechnical",
-    "data processor",
+    "data processor", "party chief",
 ]
 
 DEFAULT_THRESHOLD = 8

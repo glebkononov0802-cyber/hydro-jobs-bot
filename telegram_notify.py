@@ -9,7 +9,9 @@ import os
 import requests
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-CHAT_ID = os.environ["CHAT_ID"]
+# CHAT_ID может содержать несколько получателей через запятую:
+# "581263782,-1001234567890" (личный чат + группа)
+CHAT_IDS = [c.strip() for c in os.environ["CHAT_ID"].split(",") if c.strip()]
 
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -95,25 +97,42 @@ def build_message(job: dict, score: int, details: dict) -> str:
     return "\n".join(lines)
 
 
+
+def _post_to_all(text: str) -> bool:
+    """
+    Отправляет текст каждому получателю из CHAT_IDS.
+    True, если доставлено хотя бы одному (иначе вакансия не помечается
+    как отправленная и будет повторена в следующий прогон).
+    """
+    ok_any = False
+    for chat_id in CHAT_IDS:
+        try:
+            resp = requests.post(
+                API_URL,
+                data={
+                    "chat_id": chat_id,
+                    "text": text,
+                    "disable_web_page_preview": True,
+                },
+                timeout=15,
+            )
+            result = resp.json()
+        except Exception as e:
+            print(f"[TELEGRAM ERROR] chat {chat_id}: {e}")
+            continue
+        if result.get("ok"):
+            ok_any = True
+        else:
+            print(f"[TELEGRAM ERROR] chat {chat_id}: {result}")
+    return ok_any
+
+
 def send_alert(text: str) -> bool:
     """
     Отправляет служебное сообщение (не про конкретную вакансию) —
     например, предупреждение, что источник перестал отвечать.
     """
-    resp = requests.post(
-        API_URL,
-        data={
-            "chat_id": CHAT_ID,
-            "text": text,
-            "disable_web_page_preview": True,
-        },
-        timeout=15,
-    )
-    result = resp.json()
-    if not result.get("ok"):
-        print(f"[TELEGRAM ERROR] {result}")
-        return False
-    return True
+    return _post_to_all(text)
 
 
 def send_job(job: dict, score: int, details: dict | None = None) -> bool:
@@ -123,18 +142,4 @@ def send_job(job: dict, score: int, details: dict | None = None) -> bool:
     Duration/Software/description (см. sources/utm.py fetch_job_details).
     """
     text = build_message(job, score, details or {})
-    resp = requests.post(
-        API_URL,
-        data={
-            "chat_id": CHAT_ID,
-            "text": text,
-            "disable_web_page_preview": True,
-        },
-        timeout=15,
-    )
-
-    result = resp.json()
-    if not result.get("ok"):
-        print(f"[TELEGRAM ERROR] {result}")
-        return False
-    return True
+    return _post_to_all(text)

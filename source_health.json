@@ -8,8 +8,8 @@
     "alerted": false
   },
   "oceancrew": {
-    "consecutive_failures": 1,
-    "alerted": false
+    "consecutive_failures": 2,
+    "alerted": true
   },
   "insight": {
     "consecutive_failures": 0,

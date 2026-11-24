@@ -16,7 +16,7 @@
     "alerted": false
   },
   "etpm": {
-    "consecutive_failures": 2,
+    "consecutive_failures": 3,
     "alerted": true
   },
   "precise": {

@@ -1,6 +1,6 @@
 {
   "utm": {
-    "consecutive_failures": 1,
+    "consecutive_failures": 0,
     "alerted": false
   },
   "agr": {
@@ -16,7 +16,7 @@
     "alerted": false
   },
   "etpm": {
-    "consecutive_failures": 8,
+    "consecutive_failures": 9,
     "alerted": true
   },
   "precise": {
